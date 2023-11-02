@@ -7,22 +7,6 @@ import (
 	"net/http"
 )
 
-type Position struct {
-	Latitude  float64 `json:"lat"`
-	Longitude float64 `json:"lng"`
-}
-
-type Device struct {
-	ID       string   `json:"device_id"`
-	Name     string   `json:"display_name"`
-	Position Position `json:"latest_device_point"`
-	IsActive string    `json:"active_state"`
-}
-
-type ApiResponse struct {
-	Devices []Device `json:"result_list"`
-}
-
 func FetchData(apiKey string) (ApiResponse, error) {
 	resp, err := http.Get("https://track.onestepgps.com/v3/api/public/device?latest_point=true&api-key=" + apiKey)
 	if err != nil {

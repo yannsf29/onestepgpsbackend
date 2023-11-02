@@ -8,21 +8,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func initDB(filepath string) *sql.DB {
-	
-	db, err := sql.Open("sqlite3", filepath)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to open database: %v", err)) 
-	}
-
-
-	createTables(db)
-
-	return db
-}
-
 func createTables(db *sql.DB) {
-
 	_, err := db.Exec(`
         CREATE TABLE IF NOT EXISTS user_preferences (
             id INTEGER PRIMARY KEY,
@@ -31,9 +17,8 @@ func createTables(db *sql.DB) {
             icon BLOB
         );
     `)
-
 	if err != nil {
-		panic(fmt.Sprintf("Failed to create tables: %v", err)) 
+		panic(fmt.Sprintf("Failed to create tables: %v", err))
 	}
 }
 
@@ -58,30 +43,37 @@ func getUserPreference(db *sql.DB, id int) (UserPreference, error) {
 }
 
 func updateUserPreference(db *sql.DB, pref UserPreference) error {
-    hiddenDevicesJSON, err := json.Marshal(pref.HiddenDevices)
-    if err != nil {
-        return err
-    }
+	hiddenDevicesJSON, err := json.Marshal(pref.HiddenDevices)
+	if err != nil {
+		return err
+	}
 
-    result, err := db.Exec(
-        "UPDATE user_preferences SET sort_order = ?, hidden_devices = ?, icon = ? WHERE id = ?",
-        pref.SortOrder, string(hiddenDevicesJSON), pref.Icon, pref.ID,
-    )
-    if err != nil {
-        return err
-    }
+	result, err := db.Exec(
+		"UPDATE user_preferences SET sort_order = ?, hidden_devices = ?, icon = ? WHERE id = ?",
+		pref.SortOrder, string(hiddenDevicesJSON), pref.Icon, pref.ID,
+	)
+	if err != nil {
+		return err
+	}
 
-    rowsAffected, err := result.RowsAffected()
-    if err != nil {
-        return err
-    }
-    if rowsAffected == 0 {
-    }
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		// Handle the case where no rows were affected
+	}
 
-    return nil
+	return nil
 }
 
 func createUserPreference(db *sql.DB, pref UserPreference) error {
-	_, err := db.Exec("INSERT INTO user_preferences(sort_order, hidden_devices, icon) VALUES (?, ?, ?)", pref.SortOrder, pref.HiddenDevices, pref.Icon)
+	hiddenDevicesJSON, err := json.Marshal(pref.HiddenDevices)
+	if err != nil {
+		return err
+	}
+
+	_, err = db.Exec("INSERT INTO user_preferences(sort_order, hidden_devices, icon) VALUES (?, ?, ?)",
+		pref.SortOrder, string(hiddenDevicesJSON), pref.Icon)
 	return err
 }
