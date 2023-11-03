@@ -1,6 +1,7 @@
 package main
 
 type UserPreference struct {
+	Username      string   `json:"username"`
 	ID            int      `json:"id"`
 	SortOrder     string   `json:"sortOrder"`
 	HiddenDevices []string `json:"hiddenDevices"`

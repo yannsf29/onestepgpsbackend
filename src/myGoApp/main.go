@@ -19,16 +19,17 @@ func main() {
 	}
 	defer db.Close()
 
-	// Initialize the handlers with dependencies
 	deps := &HandlerDependencies{
 		DB:     db,
 		ApiKey: apiKey,
 	}
 
-	// Setup routes with the new handler methods
+	
 	http.HandleFunc("/", deps.Handler)
-	http.HandleFunc("/preferences", deps.HandleGetUserPreference) // GET request
-	http.HandleFunc("/preferences/update", deps.HandleUpdateUserPreference) // POST request
+	http.HandleFunc("/preferences/", deps.HandleGetUserPreference) // GET request
+	http.HandleFunc("/preferences/update/", deps.HandleUpdateUserPreference) // POST request
+	http.HandleFunc("/preferences/by-username/", deps.HandleGetUserPreferenceByUsername) // New GET request by username
+
 
 	panic(http.ListenAndServe(":8081", nil))
 }

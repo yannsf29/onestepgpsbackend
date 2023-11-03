@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"fmt"
@@ -24,7 +25,6 @@ func (deps *HandlerDependencies) Handler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Get the user ID from the URL query, default to 1 if not present
 	userID := 1
 	if idParam, ok := r.URL.Query()["id"]; ok {
 		if len(idParam) > 0 {
@@ -102,17 +102,28 @@ func (deps *HandlerDependencies) HandleUpdateUserPreference(w http.ResponseWrite
 		return
 	}
 
-	var pref UserPreference
-	decoder := json.NewDecoder(r.Body)
-	err := decoder.Decode(&pref)
+	
+	userID, err := getUserIDFromURL(r.URL.Path)
 	if err != nil {
-		http.Error(w, "Bad request data", http.StatusBadRequest)
+		http.Error(w, "Invalid user ID: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
+	
+	var pref UserPreference
+	err = json.NewDecoder(r.Body).Decode(&pref)
+	if err != nil {
+		http.Error(w, "Bad request data: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	
+	pref.ID = userID
+
+
 	err = updateUserPreference(deps.DB, pref)
 	if err != nil {
-		http.Error(w, "Failed to update user preferences", http.StatusInternalServerError)
+		http.Error(w, "Failed to update user preferences: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -120,17 +131,70 @@ func (deps *HandlerDependencies) HandleUpdateUserPreference(w http.ResponseWrite
 	w.Write([]byte(`{"message": "Preference updated successfully"}`))
 }
 
-// Helper function to extract userID from the URL path
+func (deps *HandlerDependencies) HandleGetUserPreferenceByUsername(w http.ResponseWriter, r *http.Request) {
+    setCORSHeaders(w)
+
+   
+    username, err := getUsernameFromURL(r.URL.Path)
+    if err != nil {
+        http.Error(w, "Invalid username: "+err.Error(), http.StatusBadRequest)
+        return
+    }
+
+    
+    pref, err := getUserPreferenceByUsername(deps.DB, username)
+    if err != nil {
+        
+        if err == sql.ErrNoRows {
+            http.Error(w, "Preferences not found for the given username", http.StatusNotFound)
+        } else {
+            http.Error(w, "Server error: "+err.Error(), http.StatusInternalServerError)
+        }
+        return
+    }
+
+    
+    base64Icon := base64.StdEncoding.EncodeToString(pref.Icon)
+    pref.Icon = []byte(base64Icon) 
+
+   
+    response, err := json.Marshal(pref)
+    if err != nil {
+        http.Error(w, "Failed to convert user preferences to JSON: "+err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+  
+    w.Header().Set("Content-Type", "application/json")
+    w.Write(response)
+}
+
+func getUsernameFromURL(path string) (string, error) {
+    parts := strings.Split(strings.TrimPrefix(path, "/preferences/by-username/"), "/")
+    if len(parts) != 1 {
+        return "", fmt.Errorf("Invalid URL format")
+    }
+    username, err := url.QueryUnescape(parts[0])
+    if err != nil {
+        return "", fmt.Errorf("Invalid username format: %v", err)
+    }
+    return username, nil
+}
+
 func getUserIDFromURL(path string) (int, error) {
-	parts := strings.Split(path, "/")
-	if len(parts) != 3 {
+	
+	parts := strings.Split(strings.TrimSuffix(path, "/"), "/")
+	if len(parts) < 2 {
 		return 0, fmt.Errorf("Invalid URL format")
 	}
-	idStr := parts[2]
 
+	
+	idStr := parts[len(parts)-1]
+
+	
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		return 0, fmt.Errorf("Invalid user ID format")
+		return 0, fmt.Errorf("Invalid user ID format: %v", err)
 	}
 
 	return id, nil
